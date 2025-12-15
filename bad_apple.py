@@ -10,12 +10,14 @@ class Config:
     SERVER_URL = "https://whiteboard.chat42.eu"
     
     # Bad Apple!! frame details
-    OFFSET = 50       # constant offset for the whole canvas (o)
-    PIXEL_SIZE = 4    # constant pixel size (p)
-    FPS = 42          # target frames per second based on the original data
-    DELAY_MS = 200    # delay in ms between frames that get drawn (d)
+    OFFSET_X = 200       # constant offset for the whole canvas (o)
+    OFFSET_Y = 100       # constant offset for the whole canvas (o)
+    PIXEL_SIZE_X = 5    # constant pixel size (p)
+    PIXEL_SIZE_Y = 8    # constant pixel size (p)
+    FPS = 42          # originale frames per second based on the original data
+    DELAY_MS = 27    # delay in ms between frames that get drawn (d)
     TOTAL_FRAMES = 6572 # constant, see dataset
-    WIDTH = 98        # fixed width (w)
+    WIDTH = 96        # fixed width (w)
     HEIGHT = 36       # fixed height (h)
     
     # Path to the ASCII frames
@@ -24,8 +26,8 @@ class Config:
     
     # Color map for the ASCII characters
     COLOR_MAP = {
-        '@': "#000000",  # Black
-        ' ': "#ffffff",  # White
+        '@': "#FFFFFF",  # Black
+        ' ': "#000000",  # White
         # Any other character (like '#', '.', etc.) is treated as gray in the original logic
         # The original logic treats anything that is not '@' or ' ' as gray
         'GRAY': "#888888" 
@@ -111,37 +113,34 @@ def send_frame(frame_number: int, reset: bool):
     # to draw a single line segment, which is more efficient than
     # drawing pixel-by-pixel.
 
-    o, p, w, h = Config.OFFSET, Config.PIXEL_SIZE, Config.WIDTH, Config.HEIGHT
+    o_x, o_y, p_x, p_y, w, h = Config.OFFSET_X, Config.OFFSET_Y, Config.PIXEL_SIZE_X, Config.PIXEL_SIZE_Y, Config.WIDTH, Config.HEIGHT
 
     for i in range(h): # Iterate over lines (y-coordinate)
         if i >= len(text_lines):
             break # Safety break if frame file is shorter than expected
             
-        line = text_lines[i].strip() # Get current line and remove trailing newline/whitespace
+        line = text_lines[i] # Get current line
         
         j = 0 # Current character index (x-coordinate)
         
-        # Ensure the line is long enough to prevent index errors
-        if not line or len(line) < w:
-            # Pad line with spaces if it's too short, representing white/blank
-            line = line.ljust(w, ' ')
+        
             
         
         while j < w:
             start_j = j
             
-            # --- State 1: Black (@) ---
+            # --- State 1: white (@) ---
             if line[j] == '@':
                 current_color = Config.COLOR_MAP['@']
                 while j < w and line[j] == '@':
                     j += 1
             
-            # --- State 2: White ( ) ---
+            # --- State 2: black ( ) ---
             elif line[j] == ' ':
                 current_color = Config.COLOR_MAP[' ']
                 while j < w and line[j] == ' ':
                     j += 1
-                    
+            
             # --- State 3: Gray (Anything else) ---
             else:
                 current_color = Config.COLOR_MAP['GRAY']
@@ -150,11 +149,11 @@ def send_frame(frame_number: int, reset: bool):
                     j += 1
             
             # Send drawing command for the contiguous segment
-            if j > start_j:
-                x0 = o + p * start_j
-                x1 = o + p * j
-                y0 = o + p * i
-                y1 = o + p * i
+            if j >= start_j:
+                x0 = o_x + p_x * start_j
+                x1 = o_x + p_x * j
+                y0 = o_y + p_y * i
+                y1 = o_y + p_y * i
                 
                 # Note: The original JS used y0 and y1 as the same, suggesting
                 # it's drawing a horizontal line segment (rectangle of 1 pixel height).
@@ -168,14 +167,25 @@ def send_frame(frame_number: int, reset: bool):
                 # print(f"Sent: {current_color} from {start_j} to {j} on line {i}")
             
             # If no progress was made (shouldn't happen with the logic above, but safety)
-            if j == start_j:
-                j += 1
+            #if j == start_j:
+            #    j += 1
 
 
 def apple(reset: bool):
+    if reset:
+        print("due to erase limit i cant erase every frame :((()))")
+        a=1/0
+    
     """
     Main loop to iterate through frames, send them, and pause.
     """
+    
+    
+    
+    #Reset Canvas (if requested)
+    if reset:
+        sio.emit("resetCanvas")
+        print("Sent resetCanvas command.")
     
     frame = 1
     frame_increment = calculate_frame_increment()
@@ -186,8 +196,6 @@ def apple(reset: bool):
     while frame <= Config.TOTAL_FRAMES:
         send_frame(frame, reset)
         
-        # Only reset on the very first frame to clear the canvas
-        reset = False 
         
         print(f"Sleeping for {delay_sec} seconds...")
         time.sleep(delay_sec)
@@ -215,7 +223,8 @@ def send_bad_apple():
         return
 
     # Start the playback loop. The original JS used 'apple(false)'.
-    apple(reset=True) # It's generally a good idea to reset before starting.
+    apple(reset=False)
+    
     
     # Wait for a moment before disconnecting to ensure last events are sent
     time.sleep(1) 
