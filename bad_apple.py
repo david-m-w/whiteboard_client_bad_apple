@@ -1,0 +1,233 @@
+import socketio
+import requests
+import time
+import os
+import sys
+
+# --- Configuration Constants (Cleaned up and Centralized) ---
+class Config:
+    # Socket.IO connection details
+    SERVER_URL = "https://whiteboard.chat42.eu"
+    
+    # Bad Apple!! frame details
+    OFFSET = 50       # constant offset for the whole canvas (o)
+    PIXEL_SIZE = 4    # constant pixel size (p)
+    FPS = 42          # target frames per second based on the original data
+    DELAY_MS = 200    # delay in ms between frames that get drawn (d)
+    TOTAL_FRAMES = 6572 # constant, see dataset
+    WIDTH = 98        # fixed width (w)
+    HEIGHT = 36       # fixed height (h)
+    
+    # Path to the ASCII frames
+    FRAMES_DIR = "frames_ascii"
+    FRAME_FILE_PATTERN = "out{frame_num:04d}.jpg.txt"
+    
+    # Color map for the ASCII characters
+    COLOR_MAP = {
+        '@': "#000000",  # Black
+        ' ': "#ffffff",  # White
+        # Any other character (like '#', '.', etc.) is treated as gray in the original logic
+        # The original logic treats anything that is not '@' or ' ' as gray
+        'GRAY': "#888888" 
+    }
+
+# --- Socket.IO Client Setup ---
+# The Socket.IO connection is established globally/at the start in Python
+sio = socketio.Client(reconnection=True)
+
+@sio.event
+def connect():
+    """Handles successful connection to the Socket.IO server."""
+    print("🚀 Connected to Socket.IO server!")
+
+@sio.event
+def disconnect():
+    """Handles disconnection from the Socket.IO server."""
+    print("🛑 Disconnected from Socket.IO server.")
+
+# --- Utility Functions ---
+
+def get_file_content(frame_number: int) -> str:
+    """
+    Reads the content of an ASCII frame file from the local filesystem.
+    
+    In the original JavaScript, this was an XMLHttpRequest to fetch the file
+    from a server path. In Python, we assume the frames are local.
+    """
+    filename = Config.FRAME_FILE_PATTERN.format(frame_num=frame_number)
+    filepath = os.path.join(Config.FRAMES_DIR, filename)
+
+    try:
+        with open(filepath, 'r') as f:
+            content = f.read()
+        print(f"Loaded frame {frame_number} content.")
+        return content
+    except FileNotFoundError:
+        error_msg = f"Error: Frame file not found at {filepath}"
+        print(error_msg, file=sys.stderr)
+        return ""
+    except Exception as e:
+        error_msg = f"Error reading frame file {filepath}: {e}"
+        print(error_msg, file=sys.stderr)
+        return ""
+
+def get_delay_in_seconds() -> float:
+    """Calculates the delay in seconds from the milliseconds constant."""
+    return Config.DELAY_MS / 1000.0
+
+def calculate_frame_increment() -> int:
+    """Calculates the number of frames to skip per delay interval."""
+    # frameIncrement = parseInt(fps * d / 1000)
+    # The original JS used a formula that calculates how many frames would have
+    # passed during the delay 'd'. We ensure it's at least 1.
+    increment = int(Config.FPS * Config.DELAY_MS / 1000)
+    return max(1, increment)
+
+
+# --- Core Logic ---
+
+def send_frame(frame_number: int, reset: bool):
+    """
+    Reads an ASCII frame and sends drawing commands to the Socket.IO server.
+    """
+    
+    print(f"Started on frame {frame_number}")
+    
+    # 1. Fetch Frame Content
+    text_full = get_file_content(frame_number)
+    if not text_full:
+        print(f"Skipping frame {frame_number} due to load error.")
+        return
+        
+    text_lines = text_full.split("\n")
+    
+    # 2. Reset Canvas (if requested)
+    if reset:
+        sio.emit("resetCanvas")
+        print("Sent resetCanvas command.")
+
+    # 3. Draw Bad Apple!! Frame
+    # The original JS logic groups contiguous pixels of the same color
+    # to draw a single line segment, which is more efficient than
+    # drawing pixel-by-pixel.
+
+    o, p, w, h = Config.OFFSET, Config.PIXEL_SIZE, Config.WIDTH, Config.HEIGHT
+
+    for i in range(h): # Iterate over lines (y-coordinate)
+        if i >= len(text_lines):
+            break # Safety break if frame file is shorter than expected
+            
+        line = text_lines[i].strip() # Get current line and remove trailing newline/whitespace
+        
+        j = 0 # Current character index (x-coordinate)
+        
+        # Ensure the line is long enough to prevent index errors
+        if not line or len(line) < w:
+            # Pad line with spaces if it's too short, representing white/blank
+            line = line.ljust(w, ' ')
+            
+        
+        while j < w:
+            start_j = j
+            
+            # --- State 1: Black (@) ---
+            if line[j] == '@':
+                current_color = Config.COLOR_MAP['@']
+                while j < w and line[j] == '@':
+                    j += 1
+            
+            # --- State 2: White ( ) ---
+            elif line[j] == ' ':
+                current_color = Config.COLOR_MAP[' ']
+                while j < w and line[j] == ' ':
+                    j += 1
+                    
+            # --- State 3: Gray (Anything else) ---
+            else:
+                current_color = Config.COLOR_MAP['GRAY']
+                # The original JS logic: while not '@' and not ' '
+                while j < w and line[j] != '@' and line[j] != ' ':
+                    j += 1
+            
+            # Send drawing command for the contiguous segment
+            if j > start_j:
+                x0 = o + p * start_j
+                x1 = o + p * j
+                y0 = o + p * i
+                y1 = o + p * i
+                
+                # Note: The original JS used y0 and y1 as the same, suggesting
+                # it's drawing a horizontal line segment (rectangle of 1 pixel height).
+                sio.emit("drawing", {
+                    "x0": x0, 
+                    "y0": y0, 
+                    "x1": x1, 
+                    "y1": y1, 
+                    "color": current_color
+                })
+                # print(f"Sent: {current_color} from {start_j} to {j} on line {i}")
+            
+            # If no progress was made (shouldn't happen with the logic above, but safety)
+            if j == start_j:
+                j += 1
+
+
+def apple(reset: bool):
+    """
+    Main loop to iterate through frames, send them, and pause.
+    """
+    
+    frame = 1
+    frame_increment = calculate_frame_increment()
+    delay_sec = get_delay_in_seconds()
+    
+    print(f"Starting playback: Increment={frame_increment}, Delay={Config.DELAY_MS}ms")
+    
+    while frame <= Config.TOTAL_FRAMES:
+        send_frame(frame, reset)
+        
+        # Only reset on the very first frame to clear the canvas
+        reset = False 
+        
+        print(f"Sleeping for {delay_sec} seconds...")
+        time.sleep(delay_sec)
+        print("Sleep finished.")
+        
+        frame += frame_increment
+
+    print("Playback finished.")
+    
+    # Send a final reset if requested (to clean up after the video ends)
+    if reset: # Will only trigger if totalFrames was 0 or loop never ran
+        sio.emit("resetCanvas")
+        print("Sent final resetCanvas command.")
+
+
+def send_bad_apple():
+    """Entry point function."""
+    print("--- BAD APPLE SCRIPT STARTING ---")
+    
+    # Attempt to connect to the Socket.IO server
+    try:
+        sio.connect(Config.SERVER_URL, transports=['websocket'])
+    except socketio.exceptions.ConnectionError as e:
+        print(f"Failed to connect to {Config.SERVER_URL}: {e}", file=sys.stderr)
+        return
+
+    # Start the playback loop. The original JS used 'apple(false)'.
+    apple(reset=True) # It's generally a good idea to reset before starting.
+    
+    # Wait for a moment before disconnecting to ensure last events are sent
+    time.sleep(1) 
+    
+    sio.disconnect()
+    print("--- BAD APPLE SCRIPT FINISHED ---")
+
+
+if __name__ == "__main__":
+    # Ensure the frames directory exists before running
+    if not os.path.isdir(Config.FRAMES_DIR):
+        print(f"Error: Frames directory '{Config.FRAMES_DIR}' not found.", file=sys.stderr)
+        print("Please ensure your ASCII frames are in a folder named 'frames_ascii' in the same directory as this script.", file=sys.stderr)
+    else:
+        send_bad_apple()

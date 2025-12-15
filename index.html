@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multiplayer Whiteboard</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    
+    <h1>Multiplayer Whiteboard</h1>
+    
+    <div id="toolbar">
+        <button id="resetBtn">Canvas löschen</button>
+        <span id="colorInfo">Farbe: <span id="colorPreview"></span></span>
+        <button onclick="send_bad_apple();">bad apple</button>
+    </div>
+
+
+    <canvas id="board"></canvas>
+    
+    <!-- Socket.io vom Backend laden -->
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script src="https://councils-copies-private-euros.trycloudflare.com/socket.io/socket.io.js"></script>
+    <script src="script.js"></script>
+    <!--<script src="bad_apple.js"></script>-->
+    
+
+
+    <p onload="setup();"></p>
+
+</body>
+</html>

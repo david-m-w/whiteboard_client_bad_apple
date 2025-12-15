@@ -1,0 +1,42 @@
+body {
+    margin: 0;
+    background: #f3f3f3;
+    font-family: Arial, sans-serif;
+    text-align: center;
+}
+
+#toolbar {
+    margin: 15px;
+}
+
+#resetBtn {
+    padding: 10px 20px;
+    background: #d9534f;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+#resetBtn:hover {
+    background: #c9302c;
+}
+
+#board {
+    background: white;
+    border: 2px solid #333;
+    width: 100%;
+    height: 100%;
+    border-radius: 8px;
+    margin-top: 10px;
+}
+
+#colorPreview {
+    display: inline-block;
+    width: 25px;
+    height: 25px;
+    border: 2px solid #000;
+    vertical-align: middle;
+    margin-left: 5px;
+}
