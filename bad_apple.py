@@ -62,15 +62,15 @@ def get_file_content(frame_number: int) -> str:
     try:
         with open(filepath, 'r') as f:
             content = f.read()
-        print(f"Loaded frame {frame_number} content.")
+        #print(f"Loaded frame {frame_number} content.")
         return content
     except FileNotFoundError:
         error_msg = f"Error: Frame file not found at {filepath}"
-        print(error_msg, file=sys.stderr)
+        #print(error_msg, file=sys.stderr)
         return ""
     except Exception as e:
         error_msg = f"Error reading frame file {filepath}: {e}"
-        print(error_msg, file=sys.stderr)
+        #print(error_msg, file=sys.stderr)
         return ""
 
 def get_delay_in_seconds() -> float:
@@ -93,20 +93,20 @@ def send_frame(frame_number: int, reset: bool):
     Reads an ASCII frame and sends drawing commands to the Socket.IO server.
     """
     
-    print(f"Started on frame {frame_number}")
+    #print(f"Started on frame {frame_number}")
     
     # 1. Fetch Frame Content
     text_full = get_file_content(frame_number)
     if not text_full:
-        print(f"Skipping frame {frame_number} due to load error.")
+        #print(f"Skipping frame {frame_number} due to load error.")
         return
         
     text_lines = text_full.split("\n")
     
     # 2. Reset Canvas (if requested)
     if reset:
-        sio.emit("resetCanvas")
-        print("Sent resetCanvas command.")
+        sio.emit("resetCanvas", {"clientId": "bad_apple_client_lol"})
+        #print("Sent resetCanvas command.")
 
     # 3. Draw Bad Apple!! Frame
     # The original JS logic groups contiguous pixels of the same color
@@ -164,7 +164,7 @@ def send_frame(frame_number: int, reset: bool):
                     "y1": y1, 
                     "color": current_color
                 })
-                # print(f"Sent: {current_color} from {start_j} to {j} on line {i}")
+                # #print(f"Sent: {current_color} from {start_j} to {j} on line {i}")
             
             # If no progress was made (shouldn't happen with the logic above, but safety)
             #if j == start_j:
@@ -172,10 +172,7 @@ def send_frame(frame_number: int, reset: bool):
 
 
 def apple(reset: bool):
-    if reset:
-        print("due to erase limit i cant erase every frame :((()))")
-        a=1/0
-    
+
     """
     Main loop to iterate through frames, send them, and pause.
     """
@@ -184,8 +181,8 @@ def apple(reset: bool):
     
     #Reset Canvas (if requested)
     if reset:
-        sio.emit("resetCanvas")
-        print("Sent resetCanvas command.")
+        sio.emit("resetCanvas", {"clientId": "bad_apple_client_lol"})
+        #print("Sent resetCanvas command.")
     
     frame = 1
     frame_increment = calculate_frame_increment()
@@ -197,9 +194,9 @@ def apple(reset: bool):
         send_frame(frame, reset)
         
         
-        print(f"Sleeping for {delay_sec} seconds...")
+        #print(f"Sleeping for {delay_sec} seconds...")
         time.sleep(delay_sec)
-        print("Sleep finished.")
+        #print("Sleep finished.")
         
         frame += frame_increment
 
@@ -207,7 +204,7 @@ def apple(reset: bool):
     
     # Send a final reset if requested (to clean up after the video ends)
     if reset: # Will only trigger if totalFrames was 0 or loop never ran
-        sio.emit("resetCanvas")
+        sio.emit("resetCanvas", {"clientId": "bad_apple_client_lol"})
         print("Sent final resetCanvas command.")
 
 
@@ -222,8 +219,9 @@ def send_bad_apple():
         print(f"Failed to connect to {Config.SERVER_URL}: {e}", file=sys.stderr)
         return
 
+    sio.emit('adminAuth', {"code": "19931993", "clientId": "bad_apple_client_lol"})
     # Start the playback loop. The original JS used 'apple(false)'.
-    apple(reset=False)
+    apple(reset=True)
     
     
     # Wait for a moment before disconnecting to ensure last events are sent
