@@ -162,7 +162,8 @@ def send_frame(frame_number: int, reset: bool):
                     "y0": y0, 
                     "x1": x1, 
                     "y1": y1, 
-                    "color": current_color
+                    "color": current_color,
+                    "clientId": "bad_apple_client_lol"
                 })
                 # #print(f"Sent: {current_color} from {start_j} to {j} on line {i}")
             
@@ -219,9 +220,9 @@ def send_bad_apple():
         print(f"Failed to connect to {Config.SERVER_URL}: {e}", file=sys.stderr)
         return
 
-    sio.emit('adminAuth', {"code": "19931993", "clientId": "bad_apple_client_lol"})
+    sio.emit('admin-auth', {"code": "19931993", "clientId": "bad_apple_client_lol"})
     # Start the playback loop. The original JS used 'apple(false)'.
-    apple(reset=True)
+    apple(reset=False)
     
     
     # Wait for a moment before disconnecting to ensure last events are sent
