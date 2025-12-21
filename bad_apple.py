@@ -47,6 +47,17 @@ def disconnect():
     """Handles disconnection from the Socket.IO server."""
     print("🛑 Disconnected from Socket.IO server.")
 
+#used to detect anything the serever might want to tell me
+@sio.on('*')
+def catch_all(event, *args):
+    #print(f"--- Incoming Event Detected ---")
+    print(f"Event incoming: {event}")
+    
+    # args is a tuple containing the data payload
+    for i, data in enumerate(args):
+        print(f"Data Arg {i+1}: {data}")
+    #print("-------------------------------")
+
 # --- Utility Functions ---
 
 def get_file_content(frame_number: int) -> str:
@@ -162,8 +173,8 @@ def send_frame(frame_number: int, reset: bool):
                     "y0": y0, 
                     "x1": x1, 
                     "y1": y1, 
-                    "color": current_color,
-                    "clientId": "bad_apple_client_lol"
+                    "color": current_color#,
+                    #"clientId": "bad_apple_client_lol"
                 })
                 # #print(f"Sent: {current_color} from {start_j} to {j} on line {i}")
             
